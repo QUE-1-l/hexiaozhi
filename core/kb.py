@@ -643,16 +643,8 @@ def _answer(
 
     query_grams = _grams(raw)
 
-    # 1) 连续追问：只有短追问才结合上文
-    kind = _followup_kind(raw)
-    if kind and history:
-        previous_question, previous = _previous_context(history)
-        if previous:
-            followup = _followup_answer(kind, previous, previous_question)
-            if followup:
-                return followup
-
-    # 2) 知识库条目打分
+    # 1) 先给当前问题独立打分。完整的新问题（例如「学生证丢了怎么办？」）
+    # 即使含有「怎么办 / 在哪里」等词，也不能被当作上一轮的短追问。
     entries = _entries()
     ranked = sorted(
         ((_score_entry(cleaned, query_grams, entry), entry) for entry in entries),
@@ -661,6 +653,16 @@ def _answer(
     )
     best_raw, best_entry = ranked[0] if ranked else (0.0, None)
     best_norm = _normalize(best_raw)
+
+    # 2) 连续追问：仅在没有明确命中新问题、且上一轮确实检索成功时结合上文。
+    # 上一轮未命中时不要复述它的兜底回答，否则本轮正常政策问题会丢失引用。
+    kind = _followup_kind(raw)
+    if kind and history and best_raw < 42:
+        previous_question, previous = _previous_context(history)
+        if previous and previous.get("matched"):
+            followup = _followup_answer(kind, previous, previous_question)
+            if followup:
+                return followup
 
     # 3) 上传资料打分（相关度高于知识库时优先使用）
     upload_candidates = _upload_candidates(uploads, cleaned, query_grams)

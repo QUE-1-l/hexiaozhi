@@ -2106,9 +2106,13 @@ def _anchor_to_doc() -> None:
 (function () {
   try {
     const doc = window.parent.document;
+    // 整页跳转会保留 #doc-...；站内软导航则把锚点转换成 _h 查询参数。
+    // 两种入口都要还原到同一个制度卡片，否则只进入制度库却不会展开目标条款。
     const hash = decodeURIComponent(window.parent.location.hash || '');
-    if (!hash || !hash.startsWith('#doc-')) return;
-    const target = doc.getElementById(hash.slice(1));
+    const queryAnchor = new URLSearchParams(window.parent.location.search).get('_h') || '';
+    const anchor = hash.startsWith('#doc-') ? hash.slice(1) : queryAnchor;
+    if (!anchor || !anchor.startsWith('doc-')) return;
+    const target = doc.getElementById(anchor);
     if (!target) return;
     if (target.tagName.toLowerCase() === 'details') target.open = true;
     target.scrollIntoView({block: 'start', behavior: 'auto'});
